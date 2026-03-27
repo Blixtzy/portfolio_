@@ -313,7 +313,7 @@ option { background: #07111d; }
     <div class="cline"></div>
     <p class="reveal d2" style="font-size:0.9rem;color:var(--muted);line-height:2;max-width:500px;margin:0 auto;">Have a 3D project, environment, or animation in mind? Open to collaborations, freelance, and creative opportunities.</p>
     <div class="ccards reveal d3">
-      <a class="ccard" href="mailto:killua81225@gmail.com">Email: killua81225@gmail.com</a>
+      <a class="ccard" href="/cdn-cgi/l/email-protection#b8d3d1d4d4cdd980898a8a8df8dfd5d9d1d496dbd7d5">Email: <span class="__cf_email__" data-cfemail="bed5d7d2d2cbdf868f8c8c8bfed9d3dfd7d290ddd1d3">[email&#160;protected]</span></a>
       <a class="ccard" href="https://www.linkedin.com/in/sainath-g-0bb19b316/" target="_blank" rel="noopener">LinkedIn</a>
       <a class="ccard" href="https://sketchfab.com/blixtzy81225" target="_blank" rel="noopener">Sketchfab</a>
     </div>
@@ -384,7 +384,7 @@ option { background: #07111d; }
     <div id="dlist"></div>
   </div>
 </div>
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 var AU='admin',AP='sainath3d';
 var dot=document.getElementById('dot'),ring=document.getElementById('ring');
 var mx=-200,my=-200,rx=-200,ry=-200;
@@ -407,8 +407,33 @@ function countUp(el,to){var start=performance.now(),dur=1500;function step(now){
 var statsDone=false;
 function checkStats(){if(statsDone)return;var r=document.querySelector('.stats').getBoundingClientRect();if(r.top<window.innerHeight*0.85){statsDone=true;countUp(document.getElementById('s1'),20);countUp(document.getElementById('s2'),15);countUp(document.getElementById('s3'),15);}}
 window.addEventListener('scroll',checkStats,{passive:true});setTimeout(checkStats,500);
-function getProjects(){try{return JSON.parse(localStorage.getItem('snp_v4')||'[]');}catch(e){return[];}}
-function saveProjects(arr){localStorage.setItem('snp_v4',JSON.stringify(arr));}
+function getProjects(){
+  try{
+    var meta=JSON.parse(localStorage.getItem('snp_meta')||'[]');
+    return meta.map(function(p){
+      try{p.ms=localStorage.getItem('snp_media_'+p.id)||null;}catch(e){p.ms=null;}
+      return p;
+    });
+  }catch(e){return[];}
+}
+function saveProjects(arr){
+  var meta=arr.map(function(p){
+    var m=JSON.parse(JSON.stringify(p));
+    delete m.ms;
+    return m;
+  });
+  localStorage.setItem('snp_meta',JSON.stringify(meta));
+}
+function saveMedia(id,data){
+  try{
+    if(data) localStorage.setItem('snp_media_'+id,data);
+  }catch(e){
+    alert('Storage full. Try uploading a smaller file, or delete an existing project first.');
+  }
+}
+function deleteMedia(id){
+  try{localStorage.removeItem('snp_media_'+id);}catch(e){}
+}
 function renderGrid(){var g=document.getElementById('pgrid'),ps=getProjects();if(!ps.length){g.innerHTML='<div class="empty"><div class="empty-msg">No projects yet.<br><strong>Login as admin to upload your work.</strong></div></div>';return;}var html='';for(var i=0;i<ps.length;i++){var p=ps[i],media='';if(p.mt==='video')media='<video src="'+p.ms+'" autoplay muted loop playsinline></video>';else if(p.ms)media='<img src="'+p.ms+'" alt="'+p.t+'">';else media='<div class="nomedia">NO MEDIA</div>';var tags='';if(p.tg)for(var j=0;j<p.tg.length;j++)tags+='<span class="ptag">'+p.tg[j]+'</span>';if(p.y)tags+='<span class="ptag yr">'+p.y+'</span>';html+='<div class="pcard"><div class="pmedia">'+media+'<div class="pbadge">'+(p.tp||'3D')+'</div></div><div class="pbody"><h3 class="ptitle">'+p.t+'</h3><p class="pdesc">'+(p.d||'No description.')+'</p><div class="ptags">'+tags+'</div></div></div>';}g.innerHTML=html;}
 renderGrid();
 function openLogin(){document.getElementById('login').classList.add('on');}
@@ -417,16 +442,66 @@ function doLogin(){if(document.getElementById('lu').value===AU&&document.getElem
 document.getElementById('lp').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
 function doLogout(){document.getElementById('dash').classList.remove('on');clearF();}
 var curData=null,curMT=null;
-function onFile(e){var f=e.target.files[0];if(!f)return;curMT=f.type.indexOf('video')===0?'video':'image';var reader=new FileReader();reader.onload=function(ev){curData=ev.target.result;var th=document.getElementById('fthumb');th.innerHTML=curMT==='video'?'<video src="'+curData+'" muted style="width:100%;height:100%;object-fit:cover;"></video>':'<img src="'+curData+'" style="width:100%;height:100%;object-fit:cover;">';document.getElementById('fname').textContent=f.name;document.getElementById('fsize').textContent=(f.size/1024/1024).toFixed(1)+' MB';document.getElementById('fprev').classList.add('on');document.getElementById('dzone').style.display='none';};reader.readAsDataURL(f);}
+function compressImage(dataUrl,callback){
+  var img=new Image();
+  img.onload=function(){
+    var canvas=document.createElement('canvas');
+    var MAX=1280;
+    var w=img.width,h=img.height;
+    if(w>MAX){h=Math.round(h*(MAX/w));w=MAX;}
+    if(h>MAX){w=Math.round(w*(MAX/h));h=MAX;}
+    canvas.width=w;canvas.height=h;
+    var ctx2=canvas.getContext('2d');
+    ctx2.drawImage(img,0,0,w,h);
+    callback(canvas.toDataURL('image/jpeg',0.75));
+  };
+  img.src=dataUrl;
+}
+function onFile(e){
+  var f=e.target.files[0];if(!f)return;
+  curMT=f.type.indexOf('video')===0?'video':'image';
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var raw=ev.target.result;
+    function finish(data){
+      curData=data;
+      var th=document.getElementById('fthumb');
+      th.innerHTML=curMT==='video'?'<video src="'+data+'" muted style="width:100%;height:100%;object-fit:cover;"></video>':'<img src="'+data+'" style="width:100%;height:100%;object-fit:cover;">';
+      document.getElementById('fname').textContent=f.name;
+      var kb=Math.round(data.length*0.75/1024);
+      document.getElementById('fsize').textContent=(kb>1024?(kb/1024).toFixed(1)+' MB':kb+' KB')+' (stored)';
+      document.getElementById('fprev').classList.add('on');
+      document.getElementById('dzone').style.display='none';
+    }
+    if(curMT==='image'){compressImage(raw,finish);}
+    else{finish(raw);}
+  };
+  reader.readAsDataURL(f);
+}
 function clearF(){curData=null;curMT=null;document.getElementById('ffile').value='';document.getElementById('fprev').classList.remove('on');document.getElementById('fthumb').innerHTML='';document.getElementById('dzone').style.display='block';}
 var dz=document.getElementById('dzone');
 dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag');});
 dz.addEventListener('dragleave',function(){dz.classList.remove('drag');});
 dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files.length)onFile({target:{files:e.dataTransfer.files}});});
 function showMsg(txt,ok){var m=document.getElementById('umsg');m.textContent=txt;m.className='umsg '+(ok?'ok':'fail');setTimeout(function(){m.className='umsg';},4000);}
-function addProject(){var t=document.getElementById('ptitle').value.trim(),tp=document.getElementById('ptype').value;if(!t){showMsg('Project title is required.',false);return;}if(!tp){showMsg('Please select a project type.',false);return;}var proj={id:Date.now(),t:t,tp:tp,d:document.getElementById('pdesc').value.trim(),tg:document.getElementById('ptags').value.split(',').map(function(x){return x.trim();}).filter(Boolean),y:document.getElementById('pyear').value.trim(),ms:curData,mt:curMT};var ps=getProjects();ps.unshift(proj);saveProjects(ps);renderGrid();renderDList();updateCnt();showMsg('Project added to portfolio!',true);document.getElementById('ptitle').value='';document.getElementById('ptype').value='';document.getElementById('pdesc').value='';document.getElementById('ptags').value='';document.getElementById('pyear').value='';clearF();}
+function addProject(){
+  var t=document.getElementById('ptitle').value.trim(),tp=document.getElementById('ptype').value;
+  if(!t){showMsg('Project title is required.',false);return;}
+  if(!tp){showMsg('Please select a project type.',false);return;}
+  var id=Date.now();
+  var proj={id:id,t:t,tp:tp,d:document.getElementById('pdesc').value.trim(),tg:document.getElementById('ptags').value.split(',').map(function(x){return x.trim();}).filter(Boolean),y:document.getElementById('pyear').value.trim(),mt:curMT};
+  saveMedia(id,curData);
+  proj.ms=curData;
+  var ps=getProjects();
+  ps.unshift(proj);
+  saveProjects(ps);
+  renderGrid();renderDList();updateCnt();
+  showMsg('Project added! ('+getProjects().length+' total)',true);
+  document.getElementById('ptitle').value='';document.getElementById('ptype').value='';document.getElementById('pdesc').value='';document.getElementById('ptags').value='';document.getElementById('pyear').value='';
+  clearF();
+}
 function renderDList(){var ps=getProjects(),con=document.getElementById('dlist');if(!ps.length){con.innerHTML='<p class="dempty">No projects yet. Upload your first project above.</p>';return;}var html='';for(var i=0;i<ps.length;i++){var p=ps[i],thumb='';if(p.mt==='video')thumb='<video src="'+p.ms+'" muted></video>';else if(p.ms)thumb='<img src="'+p.ms+'" alt="">';html+='<div class="ditem"><div class="dthumb">'+thumb+'</div><div class="dinfo"><div class="dname">'+p.t+'</div><div class="dmeta">'+p.tp+(p.y?' - '+p.y:'')+'</div></div><button class="delbtn" onclick="delProject('+p.id+')">Delete</button></div>';}con.innerHTML=html;}
-function delProject(id){if(!confirm('Remove this project?'))return;saveProjects(getProjects().filter(function(p){return p.id!==id;}));renderGrid();renderDList();updateCnt();}
+function delProject(id){if(!confirm('Remove this project?'))return;saveProjects(getProjects().filter(function(p){return p.id!==id;}));deleteMedia(id);renderGrid();renderDList();updateCnt();}
 function updateCnt(){var n=getProjects().length;document.getElementById('dcnt').textContent=n+' project'+(n!==1?'s':'');}
 </script>
 </body>
