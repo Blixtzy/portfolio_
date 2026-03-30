@@ -382,6 +382,17 @@ option { background: #07111d; }
     <button class="btn-p" style="width:100%;justify-content:center;" onclick="addProject()">Add to Portfolio</button>
     <p class="dsh" style="margin-top:3.5rem;">Manage Projects</p>
     <div id="dlist"></div>
+    <div style="margin-top:3rem;padding:2rem;background:rgba(0,229,255,0.03);border:1px solid rgba(0,229,255,0.15);">
+      <p class="dsh" style="margin-top:0;color:var(--c3);border-color:rgba(0,255,204,0.15);">Export for GitHub</p>
+      <p style="font-size:0.82rem;color:var(--muted);line-height:1.9;margin-bottom:1.5rem;">Your projects are saved only on this device. Click below to download a new <strong style="color:var(--white);">index.html</strong> with all your projects baked in. Upload that file to GitHub so everyone can see your work on any device.</p>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--muted);margin-bottom:1.5rem;padding:1rem;background:rgba(0,0,0,0.3);border-left:2px solid var(--c3);">
+        Step 1: Click Export below<br>
+        Step 2: Upload the downloaded file to github.com/Blixtzy/portfolio<br>
+        Step 3: Your projects appear on ALL devices
+      </div>
+      <button class="btn-p" style="width:100%;justify-content:center;background:var(--c3);color:#000;" onclick="exportSite()">Download Updated index.html</button>
+      <div id="export-msg" style="display:none;margin-top:1rem;font-family:'Share Tech Mono',monospace;font-size:0.68rem;padding:0.8rem 1rem;background:rgba(0,255,204,0.06);border:1px solid rgba(0,255,204,0.2);color:var(--c3);">File downloaded! Now upload it to GitHub to make your projects visible on all devices.</div>
+    </div>
   </div>
 </div>
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
@@ -503,6 +514,49 @@ function addProject(){
 function renderDList(){var ps=getProjects(),con=document.getElementById('dlist');if(!ps.length){con.innerHTML='<p class="dempty">No projects yet. Upload your first project above.</p>';return;}var html='';for(var i=0;i<ps.length;i++){var p=ps[i],thumb='';if(p.mt==='video')thumb='<video src="'+p.ms+'" muted></video>';else if(p.ms)thumb='<img src="'+p.ms+'" alt="">';html+='<div class="ditem"><div class="dthumb">'+thumb+'</div><div class="dinfo"><div class="dname">'+p.t+'</div><div class="dmeta">'+p.tp+(p.y?' - '+p.y:'')+'</div></div><button class="delbtn" onclick="delProject('+p.id+')">Delete</button></div>';}con.innerHTML=html;}
 function delProject(id){if(!confirm('Remove this project?'))return;saveProjects(getProjects().filter(function(p){return p.id!==id;}));deleteMedia(id);renderGrid();renderDList();updateCnt();}
 function updateCnt(){var n=getProjects().length;document.getElementById('dcnt').textContent=n+' project'+(n!==1?'s':'');}
+ 
+function exportSite(){
+  var ps=getProjects();
+  if(!ps.length){alert('No projects to export yet. Add at least one project first.');return;}
+ 
+  // Build the projects JSON with media embedded
+  var projJSON=JSON.stringify(ps);
+ 
+  // Get current page HTML
+  var html=document.documentElement.outerHTML;
+ 
+  // Remove any previously injected bootstrap script
+  html=html.replace(/<script id="snp-bootstrap"[\s\S]*?<\/script>/,'');
+ 
+  // Inject a bootstrap script that pre-loads projects into localStorage
+  // We inject it right before </body>
+  var bootstrap='<script id="snp-bootstrap">'+
+    '(function(){'+
+    'var ps='+projJSON+';'+
+    // Save meta (without ms)
+    'var meta=ps.map(function(p){var m=JSON.parse(JSON.stringify(p));delete m.ms;return m;});'+
+    'localStorage.setItem("snp_meta",JSON.stringify(meta));'+
+    // Save each media separately
+    'ps.forEach(function(p){if(p.ms)localStorage.setItem("snp_media_"+p.id,p.ms);});'+
+    '})();'+
+    '<\/script>';
+ 
+  html=html.replace('</body>',bootstrap+'</body>');
+ 
+  // Download the file
+  var blob=new Blob([html],{type:'text/html'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download='index.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+ 
+  document.getElementById('export-msg').style.display='block';
+  setTimeout(function(){document.getElementById('export-msg').style.display='none';},8000);
+}
 </script>
 </body>
 </html>
